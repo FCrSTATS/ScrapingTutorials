@@ -1,0 +1,124 @@
+---
+title: "2.ScrappingPlayerImages"
+author: "FC_rSTATS"
+date: "12/02/2018"
+output: html_document
+---
+
+# Scraping Lists Through Transfermarkt and Saving Images in R
+
+In this tutorial, we’ll be looking to develop our scraping knowledge beyond just lifting text from a single page. Following through the article, you’ll learn how to scrape links from a page and iterate through them to take information from each link, speeding up the process of creating new datasets. We will also run through how to identify and download images, creating a database of every player in the Premier League’s picture. This should save 10 minutes a week for anyone searching in Google Images to decorate their pre-match presentations!
+
+This tutorial builds on the [first tutorial](https://github.com/FCrSTATS/ScrappingTutorials/blob/master/1.ScrapingTransferFeeData.rmd) in our scraping series, so it is strongly recommended that you understand the concepts there before starting here.
+
+Let’s import our package and get started. Rvest is the only package we need to install.
+
+```{r}
+require(rvest)
+```
+
+Our aim is to extract a picture of every player in the Premier League. We have identified Transfermarkt as our target, given that each player page should have a picture. Our secondary aim is to run this in one piece of code and not to run a new command for each player or team individually. To do this, we need to follow this process:
+
+1) Locate a list of teams in the league with links to a squad list – then save these links
+
+2) Run through each squad list link and save the link to each player’s page
+
+3) Locate the player’s image and save it to our local computer
+
+For what seems to be a massive task, we can distill it down to three main tasks. Below, we’ll break each one down.
+
+## Locate a list of team links and save them
+
+The [Premier League page](https://www.transfermarkt.co.uk/premier-league/startseite/wettbewerb/GB1) is the obvious place to start. As you can see, each team name is a link through to the squad page.
+
+All we need to do is use Selector Gadget to identify the names of the nodes that we want to scrape.
+
+Finally, we append these links to the transfermarkt domain so that we can call them on their own.
+
+```{r}
+page <- "https://www.transfermarkt.co.uk/premier-league/startseite/wettbewerb/GB1"
+scraped_page <- read_html(page)
+
+teamLinks <- scraped_page %>% html_nodes(".hide-for-pad .vereinprofil_tooltip") %>% html_attr("href")
+teamLinks <- paste0("https://www.transfermarkt.co.uk", teamLinks)
+```
+
+## Run through each squad and save the player links
+
+So we now have 20 team links. We will now iterate through each of these team links and do the same thing, only this time we are taking player links and not squad links. Take a look through the code below, but you’ll notice that it is very similar to the last chunk of instructions – the key difference being that we will run it within a loop to go through all 20 teams in one go.
+
+```{r}
+PlayerLinks <- list()
+
+for (i in 1:length(teamLinks)) {
+  page <- teamLinks[i]
+  scraped_page <- read_html(page)
+  temp_PlayerLinks <- scraped_page %>% html_nodes(".hide-for-small .spielprofil_tooltip") %>% html_attr("href")
+  PlayerLinks <- append(PlayerLinks, temp_PlayerLinks)
+}
+```
+
+We have to make some quick changes to the PlayerLinks list to make them easier to use in the next step. Firstly, unlist them. Finally, we append these links to the transfermarkt domain so that we can call them on their own.
+
+```{r}
+PlayerLinks <- unlist(PlayerLinks)
+PlayerLinks <- paste0("https://www.transfermarkt.co.uk" , PlayerLinks)
+```
+
+## Locate and save each player’s image
+
+We now have a lot of links for players…
+
+513 links, in fact! We now need to iterate through each of these links and save the player’s picture.
+
+Hopefully you should now be comfortable with the process to download and process a webpage, but the second part of this step will need some unpacking – locating the image and saving it.
+
+Once again, we are locating elements in the page. We grab the image by the node and use the "src" as the input to html_attr(). This gives us the url of the image. We also grab the player's name using the "h1" node. The we use the download.file function to grab the image and save it with the filename of the player. The image then downloads to the working directory you have set in R.
+
+```{r}
+for (i in 1:length(PlayerLinks)) {
+  page <- PlayerLinks[i]
+  scraped_page <- read_html(page)
+  Player <- scraped_page %>% html_node("h1") %>% html_text() %>% as.character()
+  Image_Title <- paste0(Player,".jpg")
+  Image_url <- scraped_page %>% html_node(".dataBild img") %>% html_attr("src")
+  download.file(Image_url,Image_Title, mode = 'wb')
+}
+```
+
+... and job done! We now have a catalog of player images. To help test what you have learnt try and add the players club name to the filename of each image i.e. "AymericLaporte_ManchesterCity.jpg" .... maybe helpful when cataloging the images for future use.
+
+## Full Code
+
+```{r}
+require(rvest)
+
+page <- "https://www.transfermarkt.co.uk/premier-league/startseite/wettbewerb/GB1"
+scraped_page <- read_html(page)
+
+teamLinks <- scraped_page %>% html_nodes(".hide-for-pad .vereinprofil_tooltip") %>% html_attr("href")
+teamLinks <- paste0("https://www.transfermarkt.co.uk", teamLinks)
+
+
+PlayerLinks <- list()
+
+for (i in 1:length(teamLinks)) {
+  page <- teamLinks[i]
+  scraped_page <- read_html(page)
+  temp_PlayerLinks <- scraped_page %>% html_nodes(".hide-for-small .spielprofil_tooltip") %>% html_attr("href")
+  PlayerLinks <- append(PlayerLinks, temp_PlayerLinks)
+}
+
+PlayerLinks <- unlist(PlayerLinks)
+PlayerLinks <- paste0("https://www.transfermarkt.co.uk" , PlayerLinks)
+
+for (i in 1:length(PlayerLinks)) {
+  page <- PlayerLinks[i]
+  scraped_page <- read_html(page)
+  Player <- scraped_page %>% html_node("h1") %>% html_text() %>% as.character()
+  Image_Title <- paste0(Player,".jpg")
+  Image_url <- scraped_page %>% html_node(".dataBild img") %>% html_attr("src")
+  download.file(Image_url,Image_Title, mode = 'wb')
+}
+
+```
