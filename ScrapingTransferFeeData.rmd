@@ -1,7 +1,7 @@
 # Introduction to Scraping Data from Transfermarkt
 ## FC_rSTATS
 
-This is a R conversion of a tutorial by FC Python. I take no credit for the idea and have their blessing to make this conversion. All text is a direct copy unless changes were relevant. Please follow them on twitter and if you have a desire to learn Python then they are a fantastic resource!
+This is a R conversion of a tutorial by FC Python ([linked phrase](http://twitter.com/FC_Python)). I take no credit for the idea and have their blessing to make this conversion. All text is a direct copy unless changes were relevant. Please follow them on twitter and if you have a desire to learn Python then they are a fantastic resource!
 
 Before starting the article, I’m obliged to mention that web scraping is a grey area legally and ethicaly in lots of circumstances. Please consider the positive and negative effects of what you scrape before doing so!
 
