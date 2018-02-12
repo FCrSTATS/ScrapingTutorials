@@ -20,7 +20,7 @@ Our process for extracting data is going to go something like this:
 Load the webpage containing the data.
 Locate the data within the page and extract it.
 Organise the data into a dataframe
-For this example, we are going to take the player names and values for the most expensive players in a particular year. You can find the page that we’ll use here.
+For this example, we are going to take the player names and values for the most expensive players in a particular year. You can find the page that we’ll use [here](https://www.transfermarkt.co.uk/transfers/transferrekorde/statistik/top/plus/0/galerie/0?saison_id=2000).
 
 The following sections will run through each of these steps individually.
 
