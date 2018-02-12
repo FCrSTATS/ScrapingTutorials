@@ -1,11 +1,6 @@
----
-title: "2.ScrappingPlayerImages"
-author: "FC_rSTATS"
-date: "12/02/2018"
-output: html_document
----
-
 # Scraping Lists Through Transfermarkt and Saving Images in R
+
+This is a R conversion of a tutorial by [FC Python](https://twitter.com/FC_Python). I take no credit for the idea and have their blessing to make this conversion. All text is a direct copy unless changes were relevant. Please follow them on twitter and if you have a desire to learn Python then they are a fantastic resource!
 
 In this tutorial, we’ll be looking to develop our scraping knowledge beyond just lifting text from a single page. Following through the article, you’ll learn how to scrape links from a page and iterate through them to take information from each link, speeding up the process of creating new datasets. We will also run through how to identify and download images, creating a database of every player in the Premier League’s picture. This should save 10 minutes a week for anyone searching in Google Images to decorate their pre-match presentations!
 
