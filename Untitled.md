@@ -1,0 +1,637 @@
+Scrapping Difficult to Grab Data : Gaelic Football
+================
+
+There are some websites that are relatively easy to scrap and others that are not!
+
+This [Gaelic Football website](http://www.wexfordgaa.ie/results/) is proving difficult to use gadgetSelector like we did in an earlier posts [1](https://github.com/FCrSTATS/ScrapingTutorials/blob/master/2.ScrapingPlayerProfileImages.Rmd)\] [2](https://github.com/FCrSTATS/ScrapingTutorials/blob/master/1.ScrapingTransferFeeData.rmd).
+
+In your browser inspect the webpage, select the network tab, refresh the page and we see data request from the 'ResultsServiceAjax.php' script. Select this and look at the Headers tab to get the request URL.
+
+Open that in a new page and you will see a badly dispalyed webpage. It has now become easier to use gadgetSelector to access the data with rvest.
+
+Let's get stuck in:
+
+``` r
+# We are going to load 3 packages to help us, make sure you have installed them
+require(rvest)
+```
+
+    ## Loading required package: rvest
+
+    ## Loading required package: xml2
+
+``` r
+require(tidyr)
+```
+
+    ## Loading required package: tidyr
+
+``` r
+require(formattable)
+```
+
+    ## Loading required package: formattable
+
+Then we read into R the request URL address
+
+``` r
+phpURL <- "http://www.wexfordgaa.ie/wp-content/themes/enfold-child/fixtures/ResultServiceAjax.php"
+phpScraped <- read_html(phpURL)
+```
+
+First of all let's grab the Home and Away team names and store them as variables
+
+``` r
+HomeTeam <- phpScraped %>% html_nodes(".modalTeamName1") %>% html_text()
+AwayTeam <- phpScraped %>% html_nodes(".modalTeamName2") %>% html_text()
+
+# print the head of each to double check its working
+head(HomeTeam)
+```
+
+    ## [1] "Shelmaliers"            "Tipperary"             
+    ## [3] "Crossabeg-Ballymurn"    "Starlights (Hurling)"  
+    ## [5] "St Brigid's Blackwater" "CLG Naomh Pádraig"
+
+``` r
+head(AwayTeam)
+```
+
+    ## [1] "St James'"           "Wexford"             "Oylegate-Glenbrien" 
+    ## [4] "Glynn-Barntown"      "St Anne's Rathangan" "Kilrush"
+
+Bingo! Now let's grab the Scores
+
+``` r
+Scores <- phpScraped %>% html_nodes(".modalTeamScore") %>% html_text()
+Scores
+```
+
+    ##  [1] "5-8"  "4-6"  "3-21" "1-21" "0-4"  "4-7"  "0-7"  "1-5"  "1-2"  "1-5" 
+    ## [11] "0-6"  "1-14" "3-8"  "1-7"  "2-5"  "4-11" "3-7"  "0-7"  "2-3"  "2-10"
+    ## [21] "0-12" "1-7"  "0-10" "2-6"  "CONC" "0-0"  "CONC" "0-0"  "1-10" "0-16"
+    ## [31] "0-11" "2-2"  "4-8"  "2-3"
+
+Ah, we have a problem, all the scores are lumped together instead of being spilt between Home and Away scores. However, after closer inspection we can see that there is a pattern Home, Away, Home, Away, etc... Hmmm... we can spilt this into two list of results by using odd and even numbers!
+
+``` r
+odd_numbers <- seq(1,length(Scores),2)
+even_numbers <- seq(2,length(Scores),2)
+HomeScores <- Scores[odd_numbers]
+AwayScores <- Scores[even_numbers]
+
+# print the first 5 of each to see if they are working
+head(HomeScores)
+```
+
+    ## [1] "5-8"  "3-21" "0-4"  "0-7"  "1-2"  "0-6"
+
+``` r
+head(AwayScores)
+```
+
+    ## [1] "4-6"  "1-21" "4-7"  "1-5"  "1-5"  "1-14"
+
+Perfect, now lets try and grab the date, time and venue data.
+
+``` r
+FixtureData <- phpScraped %>% html_nodes(".modalTimeDetails") %>% html_text()
+head(FixtureData)
+```
+
+    ## [1] "DATE18 FebTIME10:30VENUESt. Patrick's Park "    
+    ## [2] "DATE17 FebTIME19:00VENUESemple Stadium, Thurles"
+    ## [3] "DATE17 FebTIME16:00VENUEGarrywilliam"           
+    ## [4] "DATE17 FebTIME14:00VENUEBellefield"             
+    ## [5] "DATE17 FebTIME14:00VENUEBlackwater"             
+    ## [6] "DATE17 FebTIME14:00VENUECamolin"
+
+Ah... hmmm, we have got the data but its all in one string. So we need the help of the tidyr package to break this up into seperate columsn of Date, Time and Venue.
+
+But first let's get out data into a dataframe and print it.
+
+``` r
+Results <- data.frame(HomeTeam = HomeTeam, AwayTeam = AwayTeam, HomeScores = HomeScores, AwayScores = AwayScores, FixtureData = FixtureData, stringsAsFactors = F)
+
+print(Results)
+```
+
+    ##                   HomeTeam                              AwayTeam
+    ## 1              Shelmaliers                             St James'
+    ## 2                Tipperary                               Wexford
+    ## 3      Crossabeg-Ballymurn                    Oylegate-Glenbrien
+    ## 4     Starlights (Hurling)                        Glynn-Barntown
+    ## 5   St Brigid's Blackwater                   St Anne's Rathangan
+    ## 6        CLG Naomh Pádraig                               Kilrush
+    ## 7      Monageer-Boolavogue                         Realt na Mara
+    ## 8       Shamrocks GAA Club                 St Mary's Maudlintown
+    ## 9              Shelmaliers            Na Sairséalaigh/Sarsfields
+    ## 10             Naomh Éanna HWH Bunclody/Tig Leath Slí Bun Clóidí
+    ## 11              Castletown                             Kilanerin
+    ## 12 Rathgarogue-Cushinstown                  St John's Volunteers
+    ## 13              Cloughbawn                       Ferns St Aidans
+    ## 14                 Kilmore                 Geraldine O`Hanrahans
+    ## 15                 Wexford                             Westmeath
+    ## 16   Gusserane-O`Rahilly's                     Bannow-Ballymitty
+    ## 17     St Anne's Rathangan                         Hollow Rovers
+    ##    HomeScores AwayScores                                     FixtureData
+    ## 1         5-8        4-6     DATE18 FebTIME10:30VENUESt. Patrick's Park 
+    ## 2        3-21       1-21 DATE17 FebTIME19:00VENUESemple Stadium, Thurles
+    ## 3         0-4        4-7            DATE17 FebTIME16:00VENUEGarrywilliam
+    ## 4         0-7        1-5              DATE17 FebTIME14:00VENUEBellefield
+    ## 5         1-2        1-5              DATE17 FebTIME14:00VENUEBlackwater
+    ## 6         0-6       1-14                 DATE17 FebTIME14:00VENUECamolin
+    ## 7         3-8        1-7                DATE17 FebTIME14:00VENUEMonageer
+    ## 8         2-5       4-11          DATE17 FebTIME14:00VENUEFr Murphy Park
+    ## 9         3-7        0-7              DATE16 FebTIME20:00VENUEHollymount
+    ## 10        2-3       2-10     DATE16 FebTIME20:00VENUEParirc Ui Shiochain
+    ## 11       0-12        1-7               DATE16 FebTIME20:00VENUETomnahely
+    ## 12       0-10        2-6             DATE16 FebTIME20:00VENUECushinstown
+    ## 13       CONC        0-0              DATE16 FebTIME20:00VENUECastleboro
+    ## 14       CONC        0-0                 DATE16 FebTIME20:00VENUEKilmore
+    ## 15       1-10       0-16   DATE11 FebTIME14:00VENUEInnovate Wexford Park
+    ## 16       0-11        2-2               DATE11 FebTIME11:00VENUEGusserane
+    ## 17        4-8        2-3               DATE11 FebTIME11:00VENUERathangan
+
+Great, now we can use tidyr to make quick work of our messy data.
+
+``` r
+Results <- Results %>% separate(FixtureData, c("Date", "extra"), sep = "TIME", remove = T)
+Results <- Results %>% separate(extra, c("Time", "Venue"), sep = "VENUE", remove = T)
+
+Results
+```
+
+    ##                   HomeTeam                              AwayTeam
+    ## 1              Shelmaliers                             St James'
+    ## 2                Tipperary                               Wexford
+    ## 3      Crossabeg-Ballymurn                    Oylegate-Glenbrien
+    ## 4     Starlights (Hurling)                        Glynn-Barntown
+    ## 5   St Brigid's Blackwater                   St Anne's Rathangan
+    ## 6        CLG Naomh Pádraig                               Kilrush
+    ## 7      Monageer-Boolavogue                         Realt na Mara
+    ## 8       Shamrocks GAA Club                 St Mary's Maudlintown
+    ## 9              Shelmaliers            Na Sairséalaigh/Sarsfields
+    ## 10             Naomh Éanna HWH Bunclody/Tig Leath Slí Bun Clóidí
+    ## 11              Castletown                             Kilanerin
+    ## 12 Rathgarogue-Cushinstown                  St John's Volunteers
+    ## 13              Cloughbawn                       Ferns St Aidans
+    ## 14                 Kilmore                 Geraldine O`Hanrahans
+    ## 15                 Wexford                             Westmeath
+    ## 16   Gusserane-O`Rahilly's                     Bannow-Ballymitty
+    ## 17     St Anne's Rathangan                         Hollow Rovers
+    ##    HomeScores AwayScores       Date  Time                   Venue
+    ## 1         5-8        4-6 DATE18 Feb 10:30     St. Patrick's Park 
+    ## 2        3-21       1-21 DATE17 Feb 19:00 Semple Stadium, Thurles
+    ## 3         0-4        4-7 DATE17 Feb 16:00            Garrywilliam
+    ## 4         0-7        1-5 DATE17 Feb 14:00              Bellefield
+    ## 5         1-2        1-5 DATE17 Feb 14:00              Blackwater
+    ## 6         0-6       1-14 DATE17 Feb 14:00                 Camolin
+    ## 7         3-8        1-7 DATE17 Feb 14:00                Monageer
+    ## 8         2-5       4-11 DATE17 Feb 14:00          Fr Murphy Park
+    ## 9         3-7        0-7 DATE16 Feb 20:00              Hollymount
+    ## 10        2-3       2-10 DATE16 Feb 20:00     Parirc Ui Shiochain
+    ## 11       0-12        1-7 DATE16 Feb 20:00               Tomnahely
+    ## 12       0-10        2-6 DATE16 Feb 20:00             Cushinstown
+    ## 13       CONC        0-0 DATE16 Feb 20:00              Castleboro
+    ## 14       CONC        0-0 DATE16 Feb 20:00                 Kilmore
+    ## 15       1-10       0-16 DATE11 Feb 14:00   Innovate Wexford Park
+    ## 16       0-11        2-2 DATE11 Feb 11:00               Gusserane
+    ## 17        4-8        2-3 DATE11 Feb 11:00               Rathangan
+
+Perfect aside from the fact we still have "DATE" at the start of the date string, yet this is easy to rectify with gsub()
+
+``` r
+Results$Date <- gsub("DATE", "", Results$Date)
+```
+
+Lets print the results now
+
+``` r
+Results
+```
+
+    ##                   HomeTeam                              AwayTeam
+    ## 1              Shelmaliers                             St James'
+    ## 2                Tipperary                               Wexford
+    ## 3      Crossabeg-Ballymurn                    Oylegate-Glenbrien
+    ## 4     Starlights (Hurling)                        Glynn-Barntown
+    ## 5   St Brigid's Blackwater                   St Anne's Rathangan
+    ## 6        CLG Naomh Pádraig                               Kilrush
+    ## 7      Monageer-Boolavogue                         Realt na Mara
+    ## 8       Shamrocks GAA Club                 St Mary's Maudlintown
+    ## 9              Shelmaliers            Na Sairséalaigh/Sarsfields
+    ## 10             Naomh Éanna HWH Bunclody/Tig Leath Slí Bun Clóidí
+    ## 11              Castletown                             Kilanerin
+    ## 12 Rathgarogue-Cushinstown                  St John's Volunteers
+    ## 13              Cloughbawn                       Ferns St Aidans
+    ## 14                 Kilmore                 Geraldine O`Hanrahans
+    ## 15                 Wexford                             Westmeath
+    ## 16   Gusserane-O`Rahilly's                     Bannow-Ballymitty
+    ## 17     St Anne's Rathangan                         Hollow Rovers
+    ##    HomeScores AwayScores   Date  Time                   Venue
+    ## 1         5-8        4-6 18 Feb 10:30     St. Patrick's Park 
+    ## 2        3-21       1-21 17 Feb 19:00 Semple Stadium, Thurles
+    ## 3         0-4        4-7 17 Feb 16:00            Garrywilliam
+    ## 4         0-7        1-5 17 Feb 14:00              Bellefield
+    ## 5         1-2        1-5 17 Feb 14:00              Blackwater
+    ## 6         0-6       1-14 17 Feb 14:00                 Camolin
+    ## 7         3-8        1-7 17 Feb 14:00                Monageer
+    ## 8         2-5       4-11 17 Feb 14:00          Fr Murphy Park
+    ## 9         3-7        0-7 16 Feb 20:00              Hollymount
+    ## 10        2-3       2-10 16 Feb 20:00     Parirc Ui Shiochain
+    ## 11       0-12        1-7 16 Feb 20:00               Tomnahely
+    ## 12       0-10        2-6 16 Feb 20:00             Cushinstown
+    ## 13       CONC        0-0 16 Feb 20:00              Castleboro
+    ## 14       CONC        0-0 16 Feb 20:00                 Kilmore
+    ## 15       1-10       0-16 11 Feb 14:00   Innovate Wexford Park
+    ## 16       0-11        2-2 11 Feb 11:00               Gusserane
+    ## 17        4-8        2-3 11 Feb 11:00               Rathangan
+
+Our job could be done now but... I want to re-order the columns and use the formattable package to display our results with a nice style.
+
+``` r
+Results <- Results[c(5,6,7,1,3,2,4)]
+formattable(Results)
+```
+
+<table class="table table-condensed">
+<thead>
+<tr>
+<th style="text-align:right;">
+Date
+</th>
+<th style="text-align:right;">
+Time
+</th>
+<th style="text-align:right;">
+Venue
+</th>
+<th style="text-align:right;">
+HomeTeam
+</th>
+<th style="text-align:right;">
+HomeScores
+</th>
+<th style="text-align:right;">
+AwayTeam
+</th>
+<th style="text-align:right;">
+AwayScores
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+18 Feb
+</td>
+<td style="text-align:right;">
+10:30
+</td>
+<td style="text-align:right;">
+St. Patrick's Park
+</td>
+<td style="text-align:right;">
+Shelmaliers
+</td>
+<td style="text-align:right;">
+5-8
+</td>
+<td style="text-align:right;">
+St James'
+</td>
+<td style="text-align:right;">
+4-6
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+17 Feb
+</td>
+<td style="text-align:right;">
+19:00
+</td>
+<td style="text-align:right;">
+Semple Stadium, Thurles
+</td>
+<td style="text-align:right;">
+Tipperary
+</td>
+<td style="text-align:right;">
+3-21
+</td>
+<td style="text-align:right;">
+Wexford
+</td>
+<td style="text-align:right;">
+1-21
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+17 Feb
+</td>
+<td style="text-align:right;">
+16:00
+</td>
+<td style="text-align:right;">
+Garrywilliam
+</td>
+<td style="text-align:right;">
+Crossabeg-Ballymurn
+</td>
+<td style="text-align:right;">
+0-4
+</td>
+<td style="text-align:right;">
+Oylegate-Glenbrien
+</td>
+<td style="text-align:right;">
+4-7
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+17 Feb
+</td>
+<td style="text-align:right;">
+14:00
+</td>
+<td style="text-align:right;">
+Bellefield
+</td>
+<td style="text-align:right;">
+Starlights (Hurling)
+</td>
+<td style="text-align:right;">
+0-7
+</td>
+<td style="text-align:right;">
+Glynn-Barntown
+</td>
+<td style="text-align:right;">
+1-5
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+17 Feb
+</td>
+<td style="text-align:right;">
+14:00
+</td>
+<td style="text-align:right;">
+Blackwater
+</td>
+<td style="text-align:right;">
+St Brigid's Blackwater
+</td>
+<td style="text-align:right;">
+1-2
+</td>
+<td style="text-align:right;">
+St Anne's Rathangan
+</td>
+<td style="text-align:right;">
+1-5
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+17 Feb
+</td>
+<td style="text-align:right;">
+14:00
+</td>
+<td style="text-align:right;">
+Camolin
+</td>
+<td style="text-align:right;">
+CLG Naomh Pádraig
+</td>
+<td style="text-align:right;">
+0-6
+</td>
+<td style="text-align:right;">
+Kilrush
+</td>
+<td style="text-align:right;">
+1-14
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+17 Feb
+</td>
+<td style="text-align:right;">
+14:00
+</td>
+<td style="text-align:right;">
+Monageer
+</td>
+<td style="text-align:right;">
+Monageer-Boolavogue
+</td>
+<td style="text-align:right;">
+3-8
+</td>
+<td style="text-align:right;">
+Realt na Mara
+</td>
+<td style="text-align:right;">
+1-7
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+17 Feb
+</td>
+<td style="text-align:right;">
+14:00
+</td>
+<td style="text-align:right;">
+Fr Murphy Park
+</td>
+<td style="text-align:right;">
+Shamrocks GAA Club
+</td>
+<td style="text-align:right;">
+2-5
+</td>
+<td style="text-align:right;">
+St Mary's Maudlintown
+</td>
+<td style="text-align:right;">
+4-11
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+16 Feb
+</td>
+<td style="text-align:right;">
+20:00
+</td>
+<td style="text-align:right;">
+Hollymount
+</td>
+<td style="text-align:right;">
+Shelmaliers
+</td>
+<td style="text-align:right;">
+3-7
+</td>
+<td style="text-align:right;">
+Na Sairséalaigh/Sarsfields
+</td>
+<td style="text-align:right;">
+0-7
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+16 Feb
+</td>
+<td style="text-align:right;">
+20:00
+</td>
+<td style="text-align:right;">
+Parirc Ui Shiochain
+</td>
+<td style="text-align:right;">
+Naomh Éanna
+</td>
+<td style="text-align:right;">
+2-3
+</td>
+<td style="text-align:right;">
+HWH Bunclody/Tig Leath Slí Bun Clóidí
+</td>
+<td style="text-align:right;">
+2-10
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+16 Feb
+</td>
+<td style="text-align:right;">
+20:00
+</td>
+<td style="text-align:right;">
+Tomnahely
+</td>
+<td style="text-align:right;">
+Castletown
+</td>
+<td style="text-align:right;">
+0-12
+</td>
+<td style="text-align:right;">
+Kilanerin
+</td>
+<td style="text-align:right;">
+1-7
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+16 Feb
+</td>
+<td style="text-align:right;">
+20:00
+</td>
+<td style="text-align:right;">
+Cushinstown
+</td>
+<td style="text-align:right;">
+Rathgarogue-Cushinstown
+</td>
+<td style="text-align:right;">
+0-10
+</td>
+<td style="text-align:right;">
+St John's Volunteers
+</td>
+<td style="text-align:right;">
+2-6
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+16 Feb
+</td>
+<td style="text-align:right;">
+20:00
+</td>
+<td style="text-align:right;">
+Castleboro
+</td>
+<td style="text-align:right;">
+Cloughbawn
+</td>
+<td style="text-align:right;">
+CONC
+</td>
+<td style="text-align:right;">
+Ferns St Aidans
+</td>
+<td style="text-align:right;">
+0-0
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+16 Feb
+</td>
+<td style="text-align:right;">
+20:00
+</td>
+<td style="text-align:right;">
+Kilmore
+</td>
+<td style="text-align:right;">
+Kilmore
+</td>
+<td style="text-align:right;">
+CONC
+</td>
+<td style="text-align:right;">
+Geraldine O`Hanrahans </td>    <td style="text-align:right;"> 0-0 </td>   </tr>   <tr>    <td style="text-align:right;"> 11 Feb </td>    <td style="text-align:right;"> 14:00 </td>    <td style="text-align:right;"> Innovate Wexford Park </td>    <td style="text-align:right;"> Wexford </td>    <td style="text-align:right;"> 1-10 </td>    <td style="text-align:right;"> Westmeath </td>    <td style="text-align:right;"> 0-16 </td>   </tr>   <tr>    <td style="text-align:right;"> 11 Feb </td>    <td style="text-align:right;"> 11:00 </td>    <td style="text-align:right;"> Gusserane </td>    <td style="text-align:right;"> Gusserane-O`Rahilly's
+</td>
+<td style="text-align:right;">
+0-11
+</td>
+<td style="text-align:right;">
+Bannow-Ballymitty
+</td>
+<td style="text-align:right;">
+2-2
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+11 Feb
+</td>
+<td style="text-align:right;">
+11:00
+</td>
+<td style="text-align:right;">
+Rathangan
+</td>
+<td style="text-align:right;">
+St Anne's Rathangan
+</td>
+<td style="text-align:right;">
+4-8
+</td>
+<td style="text-align:right;">
+Hollow Rovers
+</td>
+<td style="text-align:right;">
+2-3
+</td>
+</tr>
+</tbody>
+</table>
